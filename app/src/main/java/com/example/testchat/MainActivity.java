@@ -1,27 +1,98 @@
 package com.example.testchat;
 
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.os.NetworkOnMainThreadException;
+import android.widget.TextView;
+
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class MainActivity extends AppCompatActivity {
-    String nick;
-    ChatClient chatClient = new ChatClient(nick);
 
-    //    Button setNickButton = (Button) findViewById(R.id.set_nick_button);
-    // Button sendButton = (Button) findViewById(R.id.send_button);
-//    EditText nickName = findViewById(R.id.nickname);
-    // EditText message = findViewById(R.id.message);
+public class MainActivity extends Activity {
+
+
+
+    Chat chat = new Chat();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        TextView info = (TextView) findViewById(R.id.info1);
+        chat.run();
+        info.setText("Запускаем процесс");
     }
 
-    public void onClick(View view) {
-        System.out.println("test");
+//    MainActivity(String nick) {
+//        this.nick = nick;
+//    }
+
+
+
+
+
+}
+
+class Chat extends Thread{
+
+    public String nick;
+
+    @Override
+    public void run() {
+
+        System.out.println("Инициализация подключения к серверу");
+
+        try (Socket socket = new Socket("localhost", 10001);
+             BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))) {
+
+            System.out.println("Соединение установлено");
+
+//            info.setText("Соединение установлено");
+
+            PrintWriter pw = new PrintWriter(bw, true);
+            pw.println(nick);
+            String[] messages = {"Message1", "Message2", "exit"};//сообщения от клиента, последнее -команда выхода/завершенимя сеанса
+            AtomicInteger i = new AtomicInteger(0);
+            while (true) {
+                String clientMessage = messages[i.get()];
+                pw.println(clientMessage);
+                String messageServer = "";
+                String st = " ";
+                while ((st != null) && br.ready()) {
+                    st = br.readLine();
+                    messageServer += st + "\n";
+                }
+                System.out.println(messageServer);//ответ сервера
+                i.getAndIncrement();
+                if (i.intValue() > 2) break;
+                Thread.sleep(50);
+            }
+        } catch (UnknownHostException | FileNotFoundException e) {
+            System.err.println(e.getMessage());
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        catch (NetworkOnMainThreadException e){
+            e.printStackTrace();
+        }
+        finally {
+            System.out.println("Соединение разорвано");
+        }
     }
+
 }
